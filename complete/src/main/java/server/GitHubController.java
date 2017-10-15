@@ -23,7 +23,7 @@ public class GitHubController {
     @RequestMapping("/user/{name}")
     public CompletableFuture<TimedResponse<User>> findUser(@PathVariable(value = "name") String name) throws InterruptedException, ExecutionException {
         long start = System.currentTimeMillis();
-        ServerResponse response = new ServerResponse(Thread.currentThread().getName());
+        ServerResponse response = new ServerResponse();
         return lookupService.findUser(name)
                 .thenApply(user -> {
                     response.setData(user);

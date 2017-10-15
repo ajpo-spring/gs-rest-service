@@ -11,13 +11,12 @@ import org.springframework.web.client.RestTemplate;
 import shared.ClientResponse;
 import shared.ServerResponse;
 
-import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @RestController
 public class GitHubController {
-    private static final String BASE_URL = "http://localhost:8080/";
+    private static final String BASE_URL = "http://localhost:8080/user/";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final AsyncRestTemplate asyncRestTemplate = new AsyncRestTemplate();
@@ -27,34 +26,39 @@ public class GitHubController {
             throws InterruptedException, ExecutionException {
         long start = System.currentTimeMillis();
         ResponseEntity<ServerResponse> entity = restTemplate.getForEntity(BASE_URL + name, ServerResponse.class);
-        ClientResponse clientResponse = new ClientResponse(Thread.currentThread().getName());
+        ClientResponse clientResponse = new ClientResponse();
         clientResponse.setData(entity.getBody());
         clientResponse.setTimeMs(System.currentTimeMillis() - start);
+        clientResponse.setCompletingThread(Thread.currentThread().getName());
         return clientResponse;
     }
 
     @RequestMapping("/async/user/{name}")
-    public ListenableFuture<ClientResponse> findUserAsync(@PathVariable(value = "name") String name)
+    public CompletableFuture<ClientResponse> findUserAsync(@PathVariable(value = "name") String name)
             throws InterruptedException, ExecutionException {
         long start = System.currentTimeMillis();
-        ClientResponse clientResponse = new ClientResponse(Thread.currentThread().getName());
-        ListenableFuture<ResponseEntity<ServerResponse>> entity = asyncRestTemplate.getForEntity(BASE_URL + name, ServerResponse.class);
+        CompletableFuture<ClientResponse> result = new CompletableFuture<>();
+        ClientResponse clientResponse = new ClientResponse();
+        ListenableFuture<ResponseEntity<ServerResponse>> entity = asyncRestTemplate.getForEntity(
+                BASE_URL + name, ServerResponse.class);
         entity.addCallback(new ListenableFutureCallback<ResponseEntity<ServerResponse>>() {
             @Override
             public void onFailure(Throwable ex) {
                 clientResponse.setError(true);
                 clientResponse.setCompletingThread(Thread.currentThread().getName());
                 clientResponse.setTimeMs(System.currentTimeMillis() - start);
+                result.complete(clientResponse);
             }
 
             @Override
-            public void onSuccess(ResponseEntity<ServerResponse> result) {
-                clientResponse.setData(result.getBody());
+            public void onSuccess(ResponseEntity<ServerResponse> entity) {
+                clientResponse.setData(entity.getBody());
                 clientResponse.setCompletingThread(Thread.currentThread().getName());
                 clientResponse.setTimeMs(System.currentTimeMillis() - start);
+                result.complete(clientResponse);
             }
         });
-
+        return result;
     }
 
 }

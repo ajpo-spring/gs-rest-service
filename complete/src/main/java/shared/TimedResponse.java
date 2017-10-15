@@ -10,8 +10,8 @@ public class TimedResponse<T> {
     private long timeMs;
     private boolean error = false;
 
-    public TimedResponse(String startingThread) {
-        this.startingThread = startingThread;
+    public TimedResponse() {
+        this.startingThread = Thread.currentThread().getName();
     }
 
     public T getData() {
