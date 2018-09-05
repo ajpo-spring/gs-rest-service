@@ -1,5 +1,6 @@
 package client;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.ListenableFutureCallback;
@@ -12,7 +13,6 @@ import shared.ClientResponse;
 import shared.ServerResponse;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 @RestController
 public class GitHubController {
@@ -22,8 +22,7 @@ public class GitHubController {
     private final AsyncRestTemplate asyncRestTemplate = new AsyncRestTemplate();
 
     @RequestMapping("/sync/user/{name}")
-    public ClientResponse findUserSync(@PathVariable(value = "name") String name)
-            throws InterruptedException, ExecutionException {
+    public ClientResponse findUserSync(@PathVariable(value = "name") String name) {
         long start = System.currentTimeMillis();
         ResponseEntity<ServerResponse> entity = restTemplate.getForEntity(BASE_URL + name, ServerResponse.class);
         ClientResponse clientResponse = new ClientResponse();
@@ -34,10 +33,9 @@ public class GitHubController {
     }
 
     @RequestMapping("/async/user/{name}")
-    public CompletableFuture<ClientResponse> findUserAsync(@PathVariable(value = "name") String name)
-            throws InterruptedException, ExecutionException {
+    public CompletableFuture<ResponseEntity<ClientResponse>> findUserAsync(@PathVariable(value = "name") String name) {
         long start = System.currentTimeMillis();
-        CompletableFuture<ClientResponse> result = new CompletableFuture<>();
+        CompletableFuture<ResponseEntity<ClientResponse>> result = new CompletableFuture<>();
         ClientResponse clientResponse = new ClientResponse();
         ListenableFuture<ResponseEntity<ServerResponse>> entity = asyncRestTemplate.getForEntity(
                 BASE_URL + name, ServerResponse.class);
@@ -47,7 +45,7 @@ public class GitHubController {
                 clientResponse.setError(true);
                 clientResponse.setCompletingThread(Thread.currentThread().getName());
                 clientResponse.setTimeMs(System.currentTimeMillis() - start);
-                result.complete(clientResponse);
+                result.complete(ResponseEntity.status(HttpStatus.ACCEPTED).body(clientResponse));
             }
 
             @Override
@@ -55,10 +53,9 @@ public class GitHubController {
                 clientResponse.setData(entity.getBody());
                 clientResponse.setCompletingThread(Thread.currentThread().getName());
                 clientResponse.setTimeMs(System.currentTimeMillis() - start);
-                result.complete(clientResponse);
+                result.complete(ResponseEntity.status(HttpStatus.ACCEPTED).body(clientResponse));
             }
         });
         return result;
     }
-
 }
